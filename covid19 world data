@@ -1,0 +1,103 @@
+use world_covid
+
+-- looking all data on covid_data
+
+select * from [covid-data]
+
+-- looking location,date,new_case and new_death
+select location,date,new_cases,new_deaths
+from [covid-data]
+
+-- looking population,new_cases_new_deaths of Ethiopia in each days
+
+select location,date,new_cases,new_deaths from [covid-data] where location ='Ethiopia'
+
+-- looking total_cases , total_deaths, death_population ratio, case_population ratio, and death_case ratio in each country
+
+select location,sum(new_cases) as totalCase,sum(cast(new_deaths as int)) as totalDeath, max(population) as population,
+sum(new_cases)/max(population)*100 as [cases_population ratio],
+sum(cast(new_deaths as int))/max(population)*100 as [deaths_population ratio],
+sum(cast (new_deaths as int))/ sum(new_cases) *100 as [death_case ratio]
+from [covid-data] group by location order by location
+
+-- looking the first leading country by death_case ratio
+
+select top 1 location,sum(cast (new_deaths as int))/ sum(new_cases) *100 as [death_case ratio]
+from [covid-data]
+group by location order by [death_case ratio] desc
+
+-- looking the 2nd country that has highest total_case
+
+select top 1 location,sum(new_cases) as totalCase
+from [covid-data] group by location 
+having sum(new_cases)<(select top 1 sum(new_cases) from [covid-data] group by location order by sum(new_cases) desc)
+order by totalCase desc
+
+-- looking total_cases,total_deaths,death_case ratio in each day
+
+select date,sum(new_cases) as totalCase,sum(cast(new_deaths as int)) as totalDeath
+,sum(cast(new_deaths as int))/sum(new_cases) as [death_cases ratio]
+from [covid-data]
+group by date 
+order by [death_cases ratio]
+
+-- looking total_cases, total_death,deaths_cases ratio in country (with in 6 months from today)
+
+select location,sum(new_cases) as totalCase,sum(cast(new_deaths as int)) as totalDeaths,
+sum(cast(new_deaths as int)) /sum(new_cases) *100 as [deaths_case ratio]
+from [covid-data]
+where date between DATEADD(month,-6,GETDATE()) and getdate()
+group by location
+order by location
+
+-- looking total_cases, total_death,deaths_cases ratio in country (with in 6 months from today)
+--the total_cases must be greater the avg of all cases in the world
+
+select location,sum(new_cases) as totalCase,sum(cast(new_deaths as int)) as totalDeaths,
+sum(cast(new_deaths as int)) /sum(new_cases) *100 as [deaths_case ratio]
+from [covid-data]
+where date between DATEADD(month,-6,GETDATE()) and getdate()
+group by location 
+having sum(new_cases)>(select avg(new_cases) from [covid-data] where date between DATEADD(month,-6,GETDATE()) and getdate())
+order by location
+
+-- to display avg case and total cases of the country on each row
+
+select location,date,new_cases,new_deaths,avg(new_cases)over(partition by location) as [avg_cases_in country],
+sum(new_cases) over(partition by location) as [total_case in country level]
+from [covid-data]
+
+-- new_cases,new_vaccination,new_tests,new_deaths, ratio of cases/tests, location, and date
+
+select a.location,a.date,a.new_cases,a.new_deaths,b.new_tests,b.new_vaccinations,a.new_cases/b.new_tests as [case_test ratio]
+from [covid-data]a join covid_vaccination b on a.date=b.date and a.location=b.location order by [case_test ratio] desc
+
+-- looking how many people are vaccinated in each country? and how many citizens are vaccinated out of the total population?
+
+select a.location,sum(cast(a.new_vaccinations as bigint)) as vaccinated,max(b.population) as population,
+sum(cast(a.new_vaccinations as bigint))/max(b.population) as [vaccinated per population]
+from covid_vaccination a join [covid-data] b on a.date=b.date and a.location=b.location
+where a.continent is not null
+group by a.location order by [vaccinated per population] desc
+
+-- ranking countries by total_vaccinated
+
+select location,rank() over(order by sum(cast(new_vaccinations as bigint)) desc) as [rank by vaccination],
+sum(cast(new_vaccinations as bigint)) as vaccinated_people
+from covid_vaccination where continent is not null
+group by location order by location
+
+-- creating view that contains new_cases,new_deaths,new_vaccinations,new_vaccinations,location,date
+create view importantData as(
+select a.date,a.location,a.new_vaccinations,b.new_cases,a.new_tests,b.new_deaths
+from covid_vaccination a join [covid-data] b on a.date=b.date and a.location=b.location
+)
+select * from importantData
+
+-- count number of countries in the data
+
+select count(distinct location) as unique_countries from importantData
+
+-- count number of continet
+
+select count(distinct continent) as numberOfContinent from [covid-data]
