@@ -1,0 +1,74 @@
+use telecom_churn
+
+-- looking information of all customers
+select * from customers
+
+-- looking only male churners
+select count(*) as [number of male churners] from customers where gender='Male' and Churn='Yes'
+
+-- avg,sum,min and max of monthly charge based on churn column
+
+select churn,sum(cast(MonthlyCharges as float)) as totalcharge,
+avg(cast(MonthlyCharges as float)) as avgcharge,
+max(cast(MonthlyCharges as float)) as maxCharges,
+min(cast(MonthlyCharges as float)) as mincharges,
+avg(cast(tenure as int)) as avg_tenure
+from customers group by (churn)
+
+-- sum of monthly charge based on churn column when the sum of total cahrges is greater than the avg monthly charges of male churners
+select Contract,sum(cast(MonthlyCharges as float)) as totalcharge 
+from customers 
+group by (Contract)
+having sum(cast(MonthlyCharges as float))
+>(select avg(cast(monthlycharges as float)) from customers where gender='Male' and churn='Yes')
+order by totalcharge
+
+-- find the second customer by their monthlycharges
+
+select top(1) CONCAT(left(customerID,3),'*********',right(customerId,3)) as customer_id,gender,MonthlyCharges  from customers
+where MonthlyCharges<(select max(cast(MonthlyCharges as float)) from customers) 
+order by cast(MonthlyCharges as float) desc
+
+-- rank customers by their monthlycharges
+
+select CONCAT(left(customerID,3),'*********',right(customerId,3))customer_id,MonthlyCharges,
+rank() over (order by cast(MonthlyCharges as float) desc) as rank_of_customers 
+from customers
+
+-- display maximum monthlycharges by contract type on each row
+
+select CONCAT(left(customerID,3),'*********',right(customerId,3))customer_id,MonthlyCharges ,Contract, 
+FIRST_VALUE(cast(MonthlyCharges as float)) 
+over (partition by Contract order by cast(MonthlyCharges as float) desc) as highest
+from customers
+
+-- to display the avg,max and min monthly charges on each row based on contract group
+
+select CONCAT(left(customerID,3),'*********',right(customerId,3))customer_id,MonthlyCharges,Contract, 
+max(cast(MonthlyCharges as float)) over(
+partition by Contract) as max_chrge, 
+min(cast(MonthlyCharges as float)) over (partition by Contract) as min_monthlyCharges,
+avg(cast(monthlycharges as float)) over(partition by contract) as avg_monthlycharges 
+from customers order by cast(MonthlyCharges as float)
+
+
+-- looking the difference of individuals' monthlycharges from the avg based on churn
+
+select CONCAT(left(customerID,3),'*********',right(customerId,3))customer_id, gender,churn
+,monthlycharges,avg(cast(monthlycharges as float)) over(partition by gender)
+as avg_charg,
+cast(monthlycharges as float) - avg(cast(monthlycharges as float)) over(partition by gender) as dif_with_avg
+from customers order by customerid
+
+select  CONCAT(left(customerID,3),'*********',right(customerId,3))customer_id,gender,churn,monthlycharges,
+avg(cast(monthlycharges as float)) over(partition by gender)
+as avg_charg
+from customers  order by customerid
+
+-- how many male churners are using internet security or online backup service
+
+create view malechurner as(
+select * from customers where gender='male' and Churn='yes'
+)
+
+select count(customerid)  from malechurner where InternetService='Yes' or OnlineBackup='Yes'
