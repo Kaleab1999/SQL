@@ -1,0 +1,113 @@
+use cricket
+
+-- looking all data
+
+select * from cricket
+
+-- looking Indian players from 1999-2010
+
+select * from cricket 
+where team='India' and year([Start Date]) between '1999' and '2010' 
+order by [Start Date]
+
+-- how many Indian players are participated on 2021 in Zealand for Test occasion
+
+select count(*) as [number of indian player] from cricket
+where team='india' and Opposition='zealand' 
+and year([Start Date])='2021' and Occasion='Test'
+
+-- looking avg runs , total runs and total_game for each players
+
+select Player_Name,
+avg(runs) as avg_run,sum(runs) as total_runs,
+sum(runs)/avg(runs) as [number of game]
+from cricket group by Player_Name having avg(runs)<>0
+order by avg(runs) desc
+
+-- looking which team has the highest avg strike rate
+select team,
+avg (Strike_rate) as [avg strike rate]
+from cricket group by team
+having avg(strike_rate)=
+(select top 1 avg(strike_rate) from cricket group by team order by avg(strike_rate) desc)
+
+-- looking which team has the highest total strike rate on 2021
+
+select team,
+sum (Strike_rate) as [total strike rate]
+from cricket where year([Start Date])='2021'
+group by team
+having sum(strike_rate)=(select top 1 sum(strike_rate) from cricket where year([Start Date])='2021'
+group by team order by sum(strike_rate) desc)
+
+-- looking how many teams are participated in each year
+
+select count(distinct team) [number of team],
+year([Start Date]) [year of the game] from cricket
+group by year([Start Date])
+order by [number of team] desc
+
+
+-- looking number of teams participated in 2021
+
+select count(distinct team) [number of team],
+year([Start Date]) [year of the game] from cricket
+where year([Start Date])='2021'
+group by year([Start Date])
+
+-- looking number of teams participated in 1991
+
+select count(distinct team) [number of team],
+year([Start Date]) [year of the game] from cricket
+where year([Start Date])='1991'
+group by year([Start Date])
+
+-- looking the difference between number of teams participated in 2021 and 1991
+
+select count(distinct team)-(select count(distinct team) [number of team]
+ from cricket
+where year([Start Date])='1991'
+group by year([Start Date])) as [number of teams of 2021-1991]
+from cricket
+where year([Start Date])='2021'
+group by year([Start Date])
+
+-- looking who are the top 3 players by total min from 2010-2016
+
+select  Player_Name,
+sum(mins) as [total min] from cricket 
+where year([Start Date]) between  '2010' and '2016' 
+group by Player_Name order by sum(mins) desc
+
+-- looking the avg team strike_rate on 2021 , 
+--and the difference between individual strike rate from the avg of their team result
+
+select team,Player_Name,Strike_rate,
+avg(Strike_rate) over(partition by team) as [avg strike_rate],
+Strike_rate-avg(Strike_rate) over (partition by team) as [strike_rate-avg(strike_rate)],
+year([Start Date]) as [year]
+from cricket where year([Start Date])='2021'
+order by [strike_rate-avg(strike_rate)] desc
+
+-- ranking the players by total fours
+
+select Player_Name, sum(fours) [total fours], rank() over(order by sum(fours) desc)  as rank_
+from cricket group by Player_Name
+
+-- looking who has the 2nd heighest total fours in 2021
+
+select top 1  Player_Name,sum(fours) as total_four 
+from cricket where year([Start Date])='2021'
+group by Player_Name
+having sum(fours)<(select top 1 sum(fours) from cricket where year([Start Date])='2021'
+ group by team order by sum(fours) desc) 
+order by sum(fours) desc
+
+-- looking types of ground in 2021
+
+select count(distinct ground) as [type of grounds] from cricket where year([Start Date])='2021'
+
+-- looking the total runs, and mins in the past 2 month
+
+select sum(runs) as [total runs],sum(mins) as [total mins] from cricket
+where [Start Date] > cast(DATEADD(month,-2,getdate()) as date) 
