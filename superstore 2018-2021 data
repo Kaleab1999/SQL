@@ -1,0 +1,152 @@
+use us_sales_data
+
+-- looking all data on orders table 
+
+select * from Orders
+
+-- looking all data on people table
+
+select * from People
+
+-- select ship mode, total sales, total profit based on the ship mode
+
+select [Ship Mode],sum(sales) as totalSales,sum(profit) as totalProfit from Orders 
+group by [Ship Mode] order by [Ship Mode]
+
+-- in which city does our organizations sales more than Los Angeles
+
+select City,sum(sales) as totalSales from Orders 
+group by City having sum(sales)>(select sum(sales) from Orders where City ='Los Angeles')
+order by totalSales desc
+
+-- top 10 city we get profit
+
+select top 10 City,sum(Profit) from Orders group by City order by sum(profit) desc
+
+-- top 10 city we loss our profit
+
+select top 10 City,sum(Profit) from Orders group by City order by sum(profit)
+
+-- list of cities that loss is occured 
+--if the total profit is less than 0
+
+select city, sum(profit) as toalProfit from Orders group by city having sum(profit)<0 order by toalProfit desc
+
+-- total numbers of cities we loss profit
+
+with orderloss as(
+select city, sum(profit) as toalProfit from Orders group by city having sum(profit)<0 
+)
+select count(*)  from Orderloss
+
+
+-- total cities we get profit
+
+with cityWithProfit as(
+select city,sum(profit) as totalProfit from Orders group by city having sum(profit)>0
+)
+select count(*) from cityWithProfit
+
+
+--looking sales in each years
+
+select YEAR([order Date]) as years,sum(sales) as totalSales from Orders
+group by YEAR([order date]) order by totalSales
+
+-- looking total sales in each month of 2021
+
+select MONTH([order date]) as months2021,sum(sales) as totalSales from Orders where YEAR([order date])=2021
+group by MONTH([Order Date]) order by months2021
+
+-- create a view that contains only furniture categorical data
+
+create view furnitureData as
+select * from orders where Category='furniture'
+
+select * from furnitureData
+
+create view orderlosses as
+with orderloss as(
+select top 10 city, sum(profit) as toalProfit from Orders group by city having sum(profit)<0 order by toalProfit
+)
+select * from Orderloss
+
+select * from orderlosses
+
+-- total cities we get profit
+
+create view profitedorder as
+with cityWithProfit(city,totalProfit) as(
+select top 10 city,sum(profit) as totalProfit from Orders group by city having sum(profit)>0 order by totalProfit desc
+)
+select * from cityWithProfit
+
+select * from profitedorder
+
+-- appending top 10 profitted and top 10 losses city
+with top10lossesandprofit as(
+select * from profitedorder union select * from orderlosses)
+select * from top10lossesandprofit
+
+-- looking total profit based on category and sub category
+
+select category,[Sub-Category],sum(profit)  as totalProfit
+from Orders group by category,[Sub-Category]
+order by Category
+
+-- looking our frequent customers
+create view customerplace as
+with customer as(
+select [order ID],City,count([Order ID]) over(partition by [order id]) as totalordes 
+from orders )
+select * from customer
+
+--total orders based on city
+select sum(totalordes) as totalorders,city from customerplace group by city
+order by sum(totalordes) desc
+
+select * from Orders where city='New York City'
+
+-- to rank States based on the number of customers we have
+
+select count(distinct [Customer Name]) as [number of Customers],state,
+rank() over (order by count([customer Name]) desc) as [rank]
+from Orders group by state
+
+-- ranking states base on the profit
+
+select sum(profit) as [ total profit],state,
+rank() over(order by sum(profit) desc) as [rank]
+from Orders group by state
+
+-- ranking states based on the avg delivary dates
+-- delivery date= ship date- order date
+
+select avg(DATEDIFF(DAY,[Order Date],[Ship Date])) as [avg delivary days], state,
+rank() over (order by avg(DATEDIFF(DAY,[Order date],[Ship Date])) asc)
+from Orders group by state
+
+
+-- ranking region and regional manager by the total profit
+
+select a.Region,b.[Regional Manager],sum(a.Profit),
+rank() over (order by sum(a.profit) desc) as [rank]
+from orders a join People b on a.Region=b.Region 
+group by a.Region,b.[Regional Manager]
+
+
+-- ranking customers by their number of transactions
+
+select concat (substring([Customer Id],2,3),'***') as [cutomer id] ,
+count([customer id]) as [number of transaction],
+rank() over( order by count([customer id]) desc) as [rank]
+from orders group by [Customer ID]
+
+-- ranking products based on the number of total orders
+
+
+select [Product ID],sum(quantity)  as [total number of order] ,
+rank() over (order by sum(quantity)  desc) as [rank]
+from Orders
+group by [Product ID]
+
